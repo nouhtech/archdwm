@@ -17,42 +17,31 @@ echo -ne "
 -------------------------------------------------------------------------
 
 Final Setup and Configurations
-GRUB EFI Bootloader Install & Check
+Systemd-boot Install & Check
 "
+
+# Source configuration
 source ${HOME}/ArchTitus/configs/setup.conf
 
+# Install systemd-boot if in EFI mode
 if [[ -d "/sys/firmware/efi" ]]; then
-    grub-install --efi-directory=/boot ${DISK}
+    bootctl install
 fi
 
 echo -ne "
 -------------------------------------------------------------------------
-               Creating (and Theming) Grub Boot Menu
+               Creating (and Configuring) Systemd-boot Entries
 -------------------------------------------------------------------------
 "
-# set kernel parameter for decrypting the drive
-if [[ "${FS}" == "luks" ]]; then
-sed -i "s%GRUB_CMDLINE_LINUX_DEFAULT=\"%GRUB_CMDLINE_LINUX_DEFAULT=\"cryptdevice=UUID=${ENCRYPTED_PARTITION_UUID}:ROOT root=/dev/mapper/ROOT %g" /etc/default/grub
-fi
-# set kernel parameter for adding splash screen
-sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT="[^"]*/& splash /' /etc/default/grub
 
-echo -e "Installing CyberRe Grub theme..."
-THEME_DIR="/boot/grub/themes"
-THEME_NAME=CyberRe
-echo -e "Creating the theme directory..."
-mkdir -p "${THEME_DIR}/${THEME_NAME}"
-echo -e "Copying the theme..."
-cd ${HOME}/ArchTitus
-cp -a configs${THEME_DIR}/${THEME_NAME}/* ${THEME_DIR}/${THEME_NAME}
-echo -e "Backing up Grub config..."
-cp -an /etc/default/grub /etc/default/grub.bak
-echo -e "Setting the theme as the default..."
-grep "GRUB_THEME=" /etc/default/grub 2>&1 >/dev/null && sed -i '/GRUB_THEME=/d' /etc/default/grub
-echo "GRUB_THEME=\"${THEME_DIR}/${THEME_NAME}/theme.txt\"" >> /etc/default/grub
-echo -e "Updating grub..."
-grub-mkconfig -o /boot/grub/grub.cfg
-echo -e "All set!"
+# Create loader configuration directory if it doesn't exist
+mkdir -p /boot/loader/entries
+
+# Create default loader configuration
+echo -e "default arch\ntimeout 5\neditor 0" | sudo tee /boot/loader/loader.conf
+
+# Create entry for Arch Linux
+echo -e "title   Arch Linux\nlinux   /vmlinuz-linux\ninitrd  /initramfs-linux.img\noptions root=UUID=${ROOT_UUID} rw" | sudo tee /boot/loader/entries/arch.conf
 
 echo -ne "
 -------------------------------------------------------------------------
@@ -71,8 +60,8 @@ elif [[ "${DESKTOP_ENV}" == "gnome" ]]; then
 
 else
   if [[ ! "${DESKTOP_ENV}" == "server"  ]]; then
-  sudo pacman -S --noconfirm --needed lightdm lightdm-gtk-greeter
-  systemctl enable lightdm.service
+    sudo pacman -S --noconfirm --needed lightdm lightdm-gtk-greeter
+    systemctl enable lightdm.service
   fi
 fi
 
